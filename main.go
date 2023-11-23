@@ -1,20 +1,43 @@
 package main
 
 import (
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/go-pg/pg"
+	"github.com/joho/godotenv"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 func main() {
-	db := pg.Connect(&pg.Options{
-		User:     "postgres",
-		Password: "postgres",
-		Database: "test",
-	})
+	if _, err := os.Stat(".env"); err == nil {
+		err = godotenv.Load()
+		if err != nil {
+			panic("Cannot load env: " + err.Error())
+		}
+	}
 
+	// connect to database
+	dsn := fmt.Sprintf(
+		"%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		os.Getenv("MYSQL_USER"),
+		os.Getenv("MYSQL_PASSWORD"),
+		os.Getenv("MYSQL_HOST"),
+		os.Getenv("MYSQL_PORT"),
+		os.Getenv("MYSQL_DATABASE"),
+	)
+
+	fmt.Println(dsn)
+
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		panic("failed to connect database")
+	}
+
+	// setup server
 	r := gin.Default()
 	ginConfig := cors.DefaultConfig()
 	ginConfig.AllowOrigins = []string{"*"}
@@ -32,11 +55,12 @@ func main() {
 	}
 	r.Use(cors.New(ginConfig))
 
+	// api
 	group := r.Group("api/todos")
 
 	group.GET("", func(c *gin.Context) {
 		tasks := make([]Task, 0)
-		_ = db.Model(&tasks).Select()
+		_ = db.Model(&Task{}).Find(&tasks)
 
 		c.JSON(200, tasks)
 	})
@@ -47,7 +71,7 @@ func main() {
 
 		task.CreatedAt = time.Now()
 
-		_ = db.Insert(&task)
+		_ = db.Create(&task)
 
 		c.JSON(200, task)
 	})
