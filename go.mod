@@ -1,6 +1,6 @@
 module go-todo
 
-go 1.21.3
+go 1.19
 
 require (
 	github.com/bytedance/sonic v1.10.2 // indirect
